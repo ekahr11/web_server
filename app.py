@@ -5898,7 +5898,7 @@ def web_monitor_backup():
     domain = get_web_shield_domain()
     if not domain: return jsonify({"error": "not_configured"}), 400
     source_dir = f'/host/root/var/www/{domain}'
-    zip_filename = f"recode_backup_{int(time.time())}.zip"
+    zip_filename = f"web_shield_backup_{int(time.time())}.zip"
     zip_path = os.path.join('/tmp', zip_filename)
     
     try:
