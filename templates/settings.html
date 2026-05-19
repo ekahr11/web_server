@@ -575,10 +575,10 @@
                         style="margin-top:1rem; border-top:1px solid rgba(255,255,255,0.1); padding-top:1rem">
                         <label>System Update</label>
                         <div style="display:flex; gap:1rem; align-items:center">
-                            <button class="btn secondary" onclick="checkUpdate()" id="btn-update">
+                            <button class="btn secondary" onclick="checkUpdate()" id="btn-update-top">
                                 <i class="fa-solid fa-rotate"></i> Check for Updates
                             </button>
-                            <span id="update-status" style="font-size:0.85rem; color:#8b949e">Current: {{
+                            <span id="update-status-top" style="font-size:0.85rem; color:#8b949e">Current: {{
                                 version_info.version if version_info else '1.0.0' }}</span>
                         </div>
                     </div>
@@ -900,9 +900,14 @@
                                 <div style="font-weight:600; color:#3fb950">Pembaruan Tersedia!</div>
                                 <div style="font-size:0.85rem; color:#8b949e" id="update-info">Versi baru tersedia</div>
                             </div>
-                            <a href="#" id="update-download-link" target="_blank" class="btn primary">
-                                <i class="fa-solid fa-download"></i> Download Zip
-                            </a>
+                            <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                                <button onclick="performAutoUpdate()" id="btn-auto-update" class="btn" style="background:#3fb950; color:white; border:none;">
+                                    <i class="fa-solid fa-cloud-arrow-down"></i> Update Sekarang
+                                </button>
+                                <a href="#" id="update-download-link" target="_blank" class="btn secondary">
+                                    <i class="fa-solid fa-download"></i> Manual Zip
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -936,44 +941,98 @@
 
         function checkUpdate() {
             const btn = document.getElementById('btn-check-update');
+            const btnTop = document.getElementById('btn-update-top');
             const statusEl = document.getElementById('update-status');
+            const statusTopEl = document.getElementById('update-status-top');
             const bannerEl = document.getElementById('update-banner');
 
             // Animasi loading
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memeriksa...';
-            statusEl.innerHTML = '';
-            bannerEl.style.display = 'none';
+            if(btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memeriksa...'; }
+            if(btnTop) { btnTop.disabled = true; btnTop.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memeriksa...'; }
+            if(statusEl) statusEl.innerHTML = '';
+            if(statusTopEl) statusTopEl.innerHTML = '';
+            if(bannerEl) bannerEl.style.display = 'none';
 
             fetch('/api/check-update')
                 .then(r => r.json())
                 .then(data => {
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Cek Pembaruan';
+                    if(btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Cek Pembaruan'; }
+                    if(btnTop) { btnTop.disabled = false; btnTop.innerHTML = '<i class="fa-solid fa-rotate"></i> Check for Updates'; }
 
                     if (data.error) {
-                        statusEl.innerHTML = `<span style="color:#f85149"><i class="fa-solid fa-exclamation-circle"></i> ${data.error}</span>`;
+                        const errHtml = `<span style="color:#f85149"><i class="fa-solid fa-exclamation-circle"></i> ${data.error}</span>`;
+                        if(statusEl) statusEl.innerHTML = errHtml;
+                        if(statusTopEl) statusTopEl.innerHTML = errHtml;
                         return;
                     }
 
                     if (data.update_available) {
                         // Ada update!
-                        bannerEl.style.display = 'block';
+                        if(bannerEl) bannerEl.style.display = 'block';
                         document.getElementById('update-info').textContent =
                             `Versi ${data.latest_version} tersedia (Anda: ${data.current_version})`;
                         document.getElementById('update-download-link').href = data.download_url || '#';
 
-                        statusEl.innerHTML = '';
+                        if(statusEl) statusEl.innerHTML = '';
+                        if(statusTopEl) statusTopEl.innerHTML = '';
                     } else {
                         // Sudah versi terbaru
-                        statusEl.innerHTML = `<span style="color:#3fb950"><i class="fa-solid fa-check-circle"></i> Anda sudah menggunakan versi terbaru!</span>`;
+                        const successHtml = `<span style="color:#3fb950"><i class="fa-solid fa-check-circle"></i> Anda sudah menggunakan versi terbaru!</span>`;
+                        if(statusEl) statusEl.innerHTML = successHtml;
+                        if(statusTopEl) statusTopEl.innerHTML = successHtml;
                     }
                 })
                 .catch(err => {
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Cek Pembaruan';
-                    statusEl.innerHTML = `<span style="color:#f85149"><i class="fa-solid fa-exclamation-circle"></i> Gagal memeriksa update</span>`;
+                    if(btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Cek Pembaruan'; }
+                    if(btnTop) { btnTop.disabled = false; btnTop.innerHTML = '<i class="fa-solid fa-rotate"></i> Check for Updates'; }
+                    const errHtml = `<span style="color:#f85149"><i class="fa-solid fa-exclamation-circle"></i> Gagal memeriksa update</span>`;
+                    if(statusEl) statusEl.innerHTML = errHtml;
+                    if(statusTopEl) statusTopEl.innerHTML = errHtml;
                 });
+        }
+
+        function performAutoUpdate() {
+            if (!confirm('Apakah Anda yakin ingin melakukan update otomatis? Dashboard akan berhenti sejenak selama proses berlangsung.')) {
+                return;
+            }
+
+            const btn = document.getElementById('btn-auto-update');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Mengunduh & Rebuild...';
+            }
+
+            fetch('/api/perform-update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showMsg(data.message, 'success');
+                    // Automatically reload the page after 45 seconds to let docker rebuild
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 45000);
+                } else {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-down"></i> Update Sekarang';
+                    }
+                    showMsg(data.error || 'Gagal memulai update', 'error');
+                }
+            })
+            .catch(err => {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-down"></i> Update Sekarang';
+                }
+                showMsg('Koneksi terputus. Ini normal jika container sedang di-restart.', 'info');
+                // Automatically try to reload
+                setTimeout(() => {
+                    window.location.reload();
+                }, 45000);
+            });
         }
         // ====================================
 

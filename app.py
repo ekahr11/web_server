@@ -2415,6 +2415,49 @@ def check_update_layout():
             'update_available': False,
             'success': False
         })
+
+@app.route('/api/perform-update', methods=['POST'])
+@login_required
+def perform_update():
+    """Melakukan update otomatis dari GitHub dan rebuild container"""
+    if session.get('role') not in ['owner', 'admin']:
+        return jsonify({'success': False, 'error': 'Akses ditolak.'}), 403
+
+    try:
+        import docker
+        client = docker.from_env()
+        
+        # Cari container dashboard ini
+        container = None
+        for c in client.containers.list():
+            if 'eka_dashboard' in c.name:
+                container = c
+                break
+                
+        if not container:
+            # Fallback jika tidak ketemu berdasarkan nama
+            container = client.containers.get('eka_dashboard')
+
+        working_dir = container.labels.get('com.docker.compose.project.working_dir')
+        
+        if not working_dir:
+            # Fallback manual jika gagal dideteksi
+            working_dir = '/root/eka_dashboard'
+
+        # Eksekusi perintah di host untuk pull kode terbaru dan build ulang
+        # Perintah ini akan berjalan di background dan otomatis me-restart container
+        update_cmd = f"cd '{working_dir}' && git pull origin main && docker compose up --build -d"
+        nsenter_cmd = f"nsenter -m -u -i -n -p -t 1 sh -c \"{update_cmd}\""
+        
+        subprocess.Popen(nsenter_cmd, shell=True)
+        
+        return jsonify({
+            'success': True, 
+            'message': 'Sistem sedang memperbarui diri. Harap tunggu sekitar 1-2 menit lalu muat ulang halaman (Refresh).'
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Gagal menjalankan pembaruan: {str(e)}'}), 500
+
 # ========================================
 
 
