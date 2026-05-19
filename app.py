@@ -37,7 +37,7 @@ except ImportError:
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # ============ VERSI APLIKASI ============
-APP_VERSION = "1.2"
+APP_VERSION = "1.3"
 APP_NAME = "Eka Dashboard"
 UPDATE_CHECK_URL = "https://raw.githubusercontent.com/ekahr11/web_server/main/version.json"
 # ========================================
